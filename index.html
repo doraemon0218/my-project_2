@@ -3,49 +3,304 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Open Data Vibes</title>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <title>天理駅 避難範囲可視化アプリ</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; margin: 24px; }
-    header { max-width: 1000px; margin: 0 auto 16px; }
-    .grid { display: grid; gap: 16px; grid-template-columns: 1fr; max-width: 1000px; margin: 0 auto; }
-    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    input, select { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 8px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
-    .muted { color: #6b7280; font-size: 14px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: system-ui, -apple-system, Segoe UI, "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif; 
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #f5f5f5;
+    }
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    header h1 { 
+      font-size: 24px; 
+      margin-bottom: 4px;
+    }
+    header p { 
+      font-size: 14px; 
+      opacity: 0.9; 
+    }
+    .container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .sidebar {
+      width: 380px;
+      background: white;
+      border-right: 1px solid #e5e7eb;
+      padding: 24px;
+      overflow-y: auto;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+    }
+    .map-container {
+      flex: 1;
+      position: relative;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .card h2 {
+      font-size: 18px;
+      color: #1f2937;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: #e5e7eb;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #667eea;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #667eea;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .range-display {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    .range-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #667eea;
+      text-align: center;
+      padding: 8px;
+      background: #f3f4f6;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+    .condition-indicator {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .condition-dot {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: #e5e7eb;
+      transition: background 0.2s;
+    }
+    .condition-dot.active {
+      background: #667eea;
+    }
+    .condition-dot.good { background: #10b981; }
+    .condition-dot.normal { background: #f59e0b; }
+    .condition-dot.bad { background: #ef4444; }
+    .result-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+    .result-item:last-child {
+      border-bottom: none;
+    }
+    .result-label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .result-value {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 1000;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .legend-item:last-child {
+      margin-bottom: 0;
+    }
+    .legend-color {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .legend-label {
+      font-size: 13px;
+      color: #374151;
+    }
   </style>
-  <!-- CSVパース用（軽量） -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" defer></script>
-  <!-- チャート用（お手軽） -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="./script.js" type="module" defer></script>
 </head>
 <body>
   <header>
-    <h1>Open Data Vibes 🚀</h1>
-    <p class="muted">/data/data.csv を置くだけで可視化。CSVの列名は自由です（後で Cursor に喋って変えればOK）。</p>
+    <h1>🚇 天理駅 避難範囲可視化アプリ</h1>
+    <p>年齢・体調・移動手段に応じた到達可能範囲を可視化します</p>
   </header>
+  <div class="container">
+    <div class="sidebar">
+      <div class="card">
+        <h2>⚙️ 設定</h2>
+        
+        <div class="form-group">
+          <label>年齢区分</label>
+          <select id="ageSelect">
+            <option value="20-29">20-29歳</option>
+            <option value="30-39">30-39歳</option>
+            <option value="40-49">40-49歳</option>
+            <option value="50-59">50-59歳</option>
+            <option value="60-69">60-69歳</option>
+            <option value="70-79">70-79歳</option>
+            <option value="80+">80歳以上</option>
+          </select>
+        </div>
 
-  <section class="grid">
-    <div class="card">
-      <div class="row">
-        <label>数値列（Y軸）</label>
-        <select id="ySelect"></select>
-        <label>カテゴリ列（X軸）</label>
-        <select id="xSelect"></select>
-        <input id="filterInput" placeholder="フィルタ（部分一致）" />
-        <button id="downloadBtn">今の表をCSVでDL</button>
+        <div class="form-group">
+          <label>体調（調子）</label>
+          <input type="range" id="conditionSlider" min="0" max="100" value="100" step="10" />
+          <div class="range-display">
+            <span>悪い</span>
+            <span>普通</span>
+            <span>良好</span>
+          </div>
+          <div class="range-value" id="conditionValue">良好 (100%)</div>
+          <div class="condition-indicator">
+            <div class="condition-dot" id="dot1"></div>
+            <div class="condition-dot" id="dot2"></div>
+            <div class="condition-dot" id="dot3"></div>
+            <div class="condition-dot" id="dot4"></div>
+            <div class="condition-dot" id="dot5"></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>移動手段</label>
+          <select id="transportSelect">
+            <option value="歩行_快適">歩行（快適）</option>
+            <option value="歩行_最大">歩行（最大）</option>
+            <option value="走る">走る</option>
+            <option value="自転車">自転車</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>避難時間</label>
+          <select id="timeSelect">
+            <option value="5">5分</option>
+            <option value="10">10分</option>
+            <option value="15">15分</option>
+          </select>
+        </div>
       </div>
-      <canvas id="chart" height="120"></canvas>
+
+      <div class="result-card">
+        <h2 style="color: white; margin-bottom: 16px;">📊 到達可能範囲</h2>
+        <div class="result-item">
+          <span class="result-label">距離</span>
+          <span class="result-value" id="distanceValue">- km</span>
+        </div>
+        <div class="result-item">
+          <span class="result-label">半径</span>
+          <span class="result-value" id="radiusValue">- m</span>
+        </div>
+        <div class="result-item">
+          <span class="result-label">面積</span>
+          <span class="result-value" id="areaValue">- km²</span>
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="row"><strong>プレビュー</strong><span class="muted" id="meta"></span></div>
-      <table id="table"><thead></thead><tbody></tbody></table>
+    <div class="map-container">
+      <div id="map"></div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background: #ef4444;"></div>
+          <span class="legend-label">天理駅（起点）</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #667eea; border-radius: 50%; opacity: 0.3;"></div>
+          <span class="legend-label">到達可能範囲</span>
+        </div>
+      </div>
     </div>
-  </section>
+  </div>
 </body>
 </html>
